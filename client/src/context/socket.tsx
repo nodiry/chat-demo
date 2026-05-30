@@ -1,108 +1,132 @@
-// src/context/SocketContext.tsx
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { io, Socket } from "socket.io-client";
 
-type Message = {
-  _id: string;
+export type Message = {
+  id: string;
   sender: string;
   receiver: string;
   text: string;
-  read: boolean;
   date: string;
 };
 
 type SocketContextType = {
-  peerStatus: Boolean;
+  connected: boolean;
+  peerOnline: boolean;
+  peerJustLeft: boolean;
+  acknowledgePeerLeft: () => void;
   messages: Message[];
+  ping: number | null;
+  renderTime: number | null;
   sendMessage: (text: string) => void;
-  markAllAsRead: () => void;
-  unreadCount: number;
 };
 
 const SocketContext = createContext<SocketContextType | null>(null);
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [peerStatus, setPeerStatus] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [peerOnline, setPeerOnline] = useState(false);
+  const [peerJustLeft, setPeerJustLeft] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [ping, setPing] = useState<number | null>(null);
+  const [renderTime, setRenderTime] = useState<number | null>(null);
+  const receiveTimeRef = useRef<number | null>(null);
+  // tracks whether peer was ever online so we only fire "just left" after they joined
+  const peerWasOnlineRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (receiveTimeRef.current !== null) {
+      setRenderTime(Math.round(performance.now() - receiveTimeRef.current));
+      receiveTimeRef.current = null;
+    }
+  }, [messages]);
 
   useEffect(() => {
     const sender = localStorage.getItem("name");
     const receiver = localStorage.getItem("peer");
-
     if (!sender || !receiver) return;
 
-    const newSocket = io("http://localhost:3005", { path: "/ws/chat" });
-    setSocket(newSocket);
+    const s = io("http://localhost:3005", { path: "/ws/chat" });
+    setSocket(s);
 
-    newSocket.on("connect", () => {
-      newSocket.emit("init", { sender, receiver });
+    const measurePing = () => {
+      if (!s.connected) return;
+      const t = performance.now();
+      s.emit("latency_ping");
+      s.once("latency_pong", () => setPing(Math.round(performance.now() - t)));
+    };
+
+    s.on("connect", () => {
+      setConnected(true);
+      s.emit("init", { sender, receiver });
+      measurePing();
     });
 
-    newSocket.on("previousMessages", (prevMsgs: Message[]) => {
-      setMessages(prevMsgs.map((msg) => ({ ...msg })));
-    });
-    newSocket.on("online", (status) => {
-      setPeerStatus(status);
+    s.on("disconnect", () => {
+      setConnected(false);
+      setPeerOnline(false);
     });
 
-    newSocket.on("message", (msg: Message) => {
-      setMessages((prev) => [...prev, { ...msg }]);
+    s.on("previousMessages", (msgs: Message[]) => setMessages(msgs));
+
+    s.on("online", (status: boolean) => {
+      if (!status && peerWasOnlineRef.current) {
+        setPeerJustLeft(true);
+      }
+      peerWasOnlineRef.current = status;
+      setPeerOnline(status);
     });
+
+    s.on("message", (msg: Message) => {
+      receiveTimeRef.current = performance.now();
+      setMessages((prev) => [...prev, msg]);
+    });
+
+    const pingInterval = setInterval(measurePing, 5000);
 
     return () => {
-      newSocket.disconnect();
+      clearInterval(pingInterval);
+      s.disconnect();
     };
   }, []);
 
   const sendMessage = (text: string) => {
     const sender = localStorage.getItem("name");
     const receiver = localStorage.getItem("peer");
-
-    if (!socket || !sender || !receiver) return;
-
-    const message = {
-      _id: Date.now().toString(),
-      sender,
-      receiver,
-      text,
-    };
-
-    socket.emit("message", message);
+    if (!socket || !sender || !receiver || !text.trim()) return;
+    socket.emit("message", { sender, receiver, text: text.trim() });
   };
 
-  const markAllAsRead = () => {
-    const sender = localStorage.getItem("name");
-    const receiver = localStorage.getItem("peer");
-
-    if (!socket || !sender || !receiver) return;
-
-    // Notify backend to mark messages as read
-    socket.emit("markAsRead", { sender, receiver });
-
-    // Update local state immediately
-    setMessages((msgs) =>
-      msgs.map((msg) =>
-        msg.sender === receiver && msg.receiver === sender && !msg.read
-          ? { ...msg, read: true }
-          : msg
-      )
-    );
-  };
-
-  const unreadCount = messages.filter((msg) => !msg.read).length;
+  const acknowledgePeerLeft = () => setPeerJustLeft(false);
 
   return (
     <SocketContext.Provider
-      value={{ peerStatus, messages, sendMessage, markAllAsRead, unreadCount }}
+      value={{
+        connected,
+        peerOnline,
+        peerJustLeft,
+        acknowledgePeerLeft,
+        messages,
+        ping,
+        renderTime,
+        sendMessage,
+      }}
     >
       {children}
     </SocketContext.Provider>
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useSocketContext = () => {
   const ctx = useContext(SocketContext);
-  if (!ctx) throw new Error("useSocketContext must be used inside provider");
+  if (!ctx) throw new Error("useSocketContext must be inside SocketProvider");
   return ctx;
 };

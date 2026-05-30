@@ -1,100 +1,104 @@
-import { createServer } from "http";
-import express from "express";
+import { createServer } from "node:http";
 import { Server } from "socket.io";
-import mongoose from "mongoose";
-import config from "./config/config";
-import logger from "./middleware/logger";
-import { Message } from "./models/message";
-import { addUser, findUser, removeUser } from "./middleware/cache";
 
-const app = express();
-const server = createServer(app);
-const io = new Server(server, {
+type Message = {
+  id: string;
+  sender: string;
+  receiver: string;
+  text: string;
+  date: string;
+};
+
+// username → socketId
+const users = new Map<string, string>();
+// socketId → username
+const socketToUser = new Map<string, string>();
+// "alice:bob" (sorted) → messages[]
+const conversations = new Map<string, Message[]>();
+
+function convKey(a: string, b: string) {
+  return [a, b].sort().join(":");
+}
+
+const httpServer = createServer((_req, res) => {
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ status: "ok", service: "chat-demo" }));
+});
+
+const io = new Server(httpServer, {
   cors: { origin: "*" },
   path: "/ws/chat",
 });
-mongoose
-  .connect(config.db || "")
-  .then(() => logger.info("db connected successfully"))
-  .catch((error) =>
-    logger.error("error happened while connecting db " + error.message),
-  );
 
 io.on("connection", (socket) => {
-  console.log("New socket connected", socket.id);
+  socket.on("init", ({ sender, receiver }: { sender: string; receiver: string }) => {
+    users.set(sender, socket.id);
+    socketToUser.set(socket.id, sender);
 
-  socket.on("init", async ({ sender, receiver }) => {
-    await addUser(sender, socket.id);
+    const key = convKey(sender, receiver);
+    socket.emit("previousMessages", conversations.get(key) ?? []);
 
-    const messages = await Message.find({
-      $or: [
-        { sender, receiver },
-        { sender: receiver, receiver: sender },
-      ],
-    }).sort({ date: 1 });
-
-    socket.emit("previousMessages", messages);
-    // Send to receiver if online
-    const receiverSocketId = await findUser(receiver);
+    const receiverSocketId = users.get(receiver);
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("online", true);
       socket.emit("online", true);
     }
   });
-  socket.on("message", async (msg) => {
-    const { sender, receiver, text } = msg;
 
-    const newMsg = await Message.create({
-      sender,
-      receiver,
-      text,
-      read: false,
-      date: new Date(),
-    });
+  socket.on(
+    "message",
+    ({ sender, receiver, text }: { sender: string; receiver: string; text: string }) => {
+      const msg: Message = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        sender,
+        receiver,
+        text,
+        date: new Date().toISOString(),
+      };
 
-    // Send to sender
-    socket.emit("message", newMsg);
+      const key = convKey(sender, receiver);
+      const history = conversations.get(key) ?? [];
+      history.push(msg);
+      conversations.set(key, history);
 
-    // Send to receiver if online
-    const receiverSocketId = await findUser(receiver);
-    if (receiverSocketId) io.to(receiverSocketId).emit("message", newMsg);
-  });
+      socket.emit("message", msg);
 
-  // ✅ New: mark messages as read
-  socket.on("markAsRead", async ({ sender, receiver }) => {
-    await Message.updateMany(
-      { sender, receiver, read: false },
-      { $set: { read: true } },
-    );
-
-    const updatedMessages = await Message.find({
-      $or: [
-        { sender, receiver },
-        { sender: receiver, receiver: sender },
-      ],
-    }).sort({ date: 1 });
-
-    // Notify receiver (user who marked as read)
-    socket.emit("messagesRead", updatedMessages);
-
-    // Also notify sender (if online)
-    const senderSocketId = await findUser(sender);
-    if (senderSocketId) {
-      io.to(senderSocketId).emit("messagesRead", updatedMessages);
+      const receiverSocketId = users.get(receiver);
+      if (receiverSocketId) io.to(receiverSocketId).emit("message", msg);
     }
-  });
+  );
 
-  socket.on("disconnect", async () => {
-    // Find username from cache and remove
-    const username = Array.from(io.sockets.sockets.entries()).find(
-      ([, s]) => s.id === socket.id,
-    )?.[0];
+  // Echo back for latency measurement
+  socket.on("latency_ping", () => socket.emit("latency_pong"));
 
-    if (username) {
-      await removeUser(username);
-      console.log("Removed user from cache:", username);
+  socket.on("disconnect", () => {
+    const username = socketToUser.get(socket.id);
+    if (!username) return;
+
+    users.delete(username);
+    socketToUser.delete(socket.id);
+
+    const toDelete: string[] = [];
+
+    for (const [key] of conversations) {
+      const [a, b] = key.split(":");
+      const peer = username === a ? b : username === b ? a : null;
+      if (!peer) continue;
+
+      if (!users.has(peer)) {
+        // Both users offline — wipe the conversation
+        toDelete.push(key);
+      } else {
+        const peerSocketId = users.get(peer);
+        if (peerSocketId) io.to(peerSocketId).emit("online", false);
+      }
+    }
+
+    for (const key of toDelete) {
+      conversations.delete(key);
+      console.log(`Cleared conversation: ${key}`);
     }
   });
 });
 
-server.listen(3005, () => console.log("http://localhost:3005"));
+httpServer.listen(3005, () => console.log("Chat server → http://localhost:3005"));

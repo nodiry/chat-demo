@@ -1,158 +1,105 @@
-# 💬 Messenger — Full-Stack Real-Time Chat App
+# Chat Demo — Real-Time Messenger
 
-> A fast and clean real-time messenger built with **Bun**, **Express + Socket.io**, **MongoDB + Memcached**, and a **Vite + React + ShadCN** frontend.
+> A minimal, production-ready real-time chat demo built with **Bun**, **Socket.io**, and a **Vite + React + shadcn/ui** frontend.  
+> No database. No external services. Just connect and chat.
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
-### 1️⃣ Clone & Setup
-Make sure you’ve got **Bun**, **MongoDB**, and **Memcached** running locally.
+Make sure **Bun** is installed (`curl -fsSL https://bun.sh/install | bash`).
 
 ```bash
-# clone your project
-git clone <https://github.com/nodiry/chat-demo.git > 
+git clone https://github.com/nodiry/chat-demo.git
 cd chat-demo
-````
-Project structure:
-
-```
-messenger/
-  ├── server/   # Express + Socket.io backend
-  └── client/   # React (Vite) frontend with ShadCN UI
+chmod +x run.sh
+./run.sh
 ```
 
----
-
-### 2️⃣ Run Everything at Once
-
-Inside the root directory (where this README is), you’ll find a script called **`run.sh`**.
-It installs dependencies for both client and server, and runs them together.
-
-```bash
-chmod +x run.sh   # make it executable
-./run.sh          # launch both backend and frontend
-```
-
-This script will:
-
-* 🔧 `bun install` dependencies in both `/server` and `/client`
-* ⚙️ start both with `bun run dev`
-* 🧩 keep both processes alive and show their logs
+`run.sh` installs dependencies for both `server/` and `client/`, then starts them in parallel.
 
 ---
 
-## 🌐 Access the App
+## Access
 
-Once both are running:
-
-👉 **Frontend:** [http://localhost:5173](http://localhost:5173)
-👉 **Backend (Socket.io + API):** [http://localhost:3005](http://localhost:3005)
-
----
-
-## 🧠 How to Use
-
-1. Open **[http://localhost:5173](http://localhost:5173)** in your browser.
-2. Enter your **username** and your **receiver’s name**.
-3. Open another browser tab or different account and swap the names.
-4. You’ll be greeted with the chat interface — messages will sync in real time! ⚡
-5. Notifications will appear regardless of the page you’re on, thanks to the global notification context wrapper. 🧩
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:5173 |
+| Backend | http://localhost:3005 |
 
 ---
 
-## ⚙️ Tech Stack
+## How to Use
 
-| Layer       | Tech                         | Description                                              |
-| ----------- | ---------------------------- | -------------------------------------------------------- |
-| 🧠 Backend  | **Express + Socket.io**      | Real-time communication and API server                   |
-| 💾 Database | **MongoDB**                  | Message and user data storage                            |
-| ⚡ Cache     | **Memcached**                | Fast caching layer for user sessions or frequent lookups |
-| 🧩 Frontend | **Vite + React + ShadCN/UI** | Fast modern frontend with clean components               |
-| 🚀 Runtime  | **Bun**                      | Super-fast JS runtime replacing Node.js                  |
-| 🖥️ Host    | Your own VPS (Ubuntu/Debian) | Self-maintained for full control                         |
+1. Open **http://localhost:5173** in two browser tabs (or two browsers).
+2. Tab A: enter name `alice`, chatting with `bob` → **Start Chatting**.
+3. Tab B: enter name `bob`, chatting with `alice` → **Start Chatting**.
+4. Messages sync in real time. The sidebar shows live ping and render time.
+5. When both users close the chat, all messages are wiped from memory automatically.
 
 ---
 
-## 🧰 Default Config
+## Tech Stack
 
-| Component       | Host      | Port                |
-| --------------- | --------- | ------------------- |
-| Server          | localhost | **3005**            |
-| MongoDB         | localhost | **27017** (default) |
-| Memcached       | localhost | **11211**           |
-| Frontend (Vite) | localhost | **5173**            |
-
----
-
-## 🧹 Common Commands
-
-| Action                | Command                          |
-| --------------------- | -------------------------------- |
-| Install deps manually | `bun install` inside each folder |
-| Run backend only      | `cd server && bun run dev`       |
-| Run frontend only     | `cd client && bun run dev`       |
-| Stop all              | `CTRL + C`                       |
+| Layer | Technology |
+|-------|-----------|
+| Runtime | **Bun** |
+| Backend | **Bun native HTTP** + **Socket.io** |
+| Storage | **In-memory** (Maps) — no database required |
+| Frontend | **React 19** + **Vite** |
+| UI | **shadcn/ui** + **Tailwind CSS v4** |
+| Language | **TypeScript** |
 
 ---
 
-## 🧩 File Tree Overview
+## Project Structure
 
 ```
-messenger/
+chat-demo/
+├── server/          # Bun HTTP + Socket.io backend
+│   ├── main.ts      # Single entry point
+│   ├── package.json
+│   └── README.md    # Socket.io integration guide
 │
-├── server/
+├── client/          # React SPA
 │   ├── src/
-│   │   ├── index.ts          # Express + Socket.io entry
-│   │   ├── db/               # Mongo connection + Memcached logic
-│   │   ├── routes/           # API endpoints
-│   │   └── utils/            # Helpers, validation, etc.
-│   └── package.json
+│   │   ├── App.tsx          # Login + Chat views
+│   │   ├── context/socket.tsx  # Socket context + speed metrics
+│   │   └── components/ui/   # shadcn components incl. sidebar
+│   ├── package.json
+│   └── README.md    # UI & component docs
 │
-├── client/
-│   ├── src/
-│   │   ├── App.tsx           # Wrapped in Notification Context
-│   │   ├── components/       # ShadCN UI parts
-│   │   └── pages/            # Chat UI & forms
-│   └── package.json
-│
-└── run.sh                    # Runs everything automatically
+└── run.sh           # One-command launcher
 ```
 
 ---
 
-## 🧨 Troubleshooting
+## Commands
 
-| Problem               | Fix                                                                      |       |
-| --------------------- | ------------------------------------------------------------------------ | ----- |
-| Mongo not connecting  | Make sure MongoDB is running: `sudo systemctl start mongod`              |       |
-| Memcached not running | `sudo systemctl start memcached`                                         |       |
-| Port already in use   | Kill the process using it: `sudo lsof -i :3005` then `kill -9 <pid>`     |       |
-| Bun not found         | Install it: `curl -fsSL [https://bun.sh/install](https://bun.sh/install) | bash` |
-
----
-
-## 🧑‍💻 Contribute or Extend
-
-You can easily extend this:
-
-* Add file uploads through Socket.io streams
-* Integrate message history pagination
-* Implement authentication with JWT or sessions
-* Add online/offline status indicators
+| Action | Command |
+|--------|---------|
+| Start everything | `./run.sh` |
+| Backend only | `cd server && bun run dev` |
+| Frontend only | `cd client && bun run dev` |
+| Stop | `Ctrl+C` |
 
 ---
 
-## 🎉 Done!
+## Features
 
-Once everything’s running, open multiple browsers and start chatting!
-Enjoy your fast, lightweight, **real-time Bun-powered messenger** 🧡
-
----
-
-> ⚡ *“Fast servers, clean UI, zero nonsense — just chat.”*
-
-```
+- **Zero external dependencies** — no MongoDB, Redis, or Memcached needed
+- **Auto-cleanup** — conversation messages are deleted when both users disconnect
+- **Live speed metrics** — socket ping RTT and React render time shown in sidebar
+- **Dark / light theme** — persisted to localStorage
+- **Peer presence** — real-time online/offline indicator
 
 ---
 
+## Docs
+
+- [Backend — Socket.io integration guide](server/README.md)
+- [Frontend — UI & component docs](client/README.md)
+
+---
+
+> *"Fast servers, clean UI, zero nonsense — just chat."*
