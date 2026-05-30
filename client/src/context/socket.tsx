@@ -53,7 +53,11 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     const receiver = localStorage.getItem("peer");
     if (!sender || !receiver) return;
 
-    const s = io("http://localhost:3005", { path: "/ws/chat" });
+    // For Vite:
+    const socketUrl =
+      import.meta.env.VITE_SOCKET_URL || "http://localhost:3005";
+
+    const s = io(socketUrl, { path: "/ws/chat" });
     setSocket(s);
 
     const measurePing = () => {
