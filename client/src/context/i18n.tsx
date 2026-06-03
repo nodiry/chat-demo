@@ -6,7 +6,9 @@ export type Translations = {
   appName: string;
   appDesc: string;
   yourName: string;
+  yourNameHint: string;
   chattingWith: string;
+  peerNameHint: string;
   startChatting: string;
   howItWorks: string;
   viewOnGithub: string;
@@ -40,7 +42,9 @@ const T: Record<Lang, Translations> = {
     appName: "소켓 채팅 데모",
     appDesc: "Socket.io + Bun · 실시간 데모",
     yourName: "내 이름",
+    yourNameHint: "짧고 기억하기 쉽게 — 상대방이 이 이름을 정확히 입력해야 합니다",
     chattingWith: "상대방 이름...",
+    peerNameHint: "상대방이 사용한 정확한 이름을 입력하세요",
     startChatting: "채팅 시작하기 →",
     howItWorks: "작동 원리",
     viewOnGithub: "GitHub",
@@ -93,7 +97,9 @@ const T: Record<Lang, Translations> = {
     appName: "Socket Chat Demo",
     appDesc: "Socket.io + Bun · Real-time demo",
     yourName: "Your name",
-    chattingWith: "Chatting with...",
+    yourNameHint: "Short & memorable — your peer must type this exactly to find you",
+    chattingWith: "Peer's username...",
+    peerNameHint: "The exact username your peer registered with",
     startChatting: "Start Chatting →",
     howItWorks: "How it works",
     viewOnGithub: "GitHub",
@@ -147,7 +153,9 @@ const T: Record<Lang, Translations> = {
     appName: "Socket Чат Демо",
     appDesc: "Socket.io + Bun · Демо реального времени",
     yourName: "Ваше имя",
+    yourNameHint: "Коротко — собеседник должен ввести это имя точно",
     chattingWith: "Имя собеседника...",
+    peerNameHint: "Точное имя, которое использует собеседник",
     startChatting: "Начать чат →",
     howItWorks: "Как это работает",
     viewOnGithub: "GitHub",
@@ -201,7 +209,9 @@ const T: Record<Lang, Translations> = {
     appName: "Socket Chat Demo",
     appDesc: "Socket.io + Bun · Real-time demo",
     yourName: "Ismingiz",
+    yourNameHint: "Qisqa — suhbatdosh bu ismni aynan shu ko'rinishda kiritishi kerak",
     chattingWith: "Suhbatdosh ismi...",
+    peerNameHint: "Suhbatdosh ro'yxatdan o'tgan ismni aynan kiriting",
     startChatting: "Chatni boshlash →",
     howItWorks: "Qanday ishlaydi",
     viewOnGithub: "GitHub",

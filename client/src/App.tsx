@@ -39,7 +39,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ─── Language selector (shared) ───────────────────────────────────────────────
+// ─── Language selector ─────────────────────────────────────────────────────────
 
 const LANGS: Array<{ code: Lang; label: string }> = [
   { code: "ko", label: "한국어" },
@@ -61,7 +61,7 @@ function LanguageSelector({ compact = false }: { compact?: boolean }) {
             compact ? "px-1.5 py-0.5" : "px-2 py-1",
             lang === code
               ? "border-primary bg-primary text-primary-foreground"
-              : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+              : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground",
           )}
         >
           {label}
@@ -71,7 +71,7 @@ function LanguageSelector({ compact = false }: { compact?: boolean }) {
   );
 }
 
-// ─── Root App ─────────────────────────────────────────────────────────────────
+// ─── Root App ──────────────────────────────────────────────────────────────────
 
 type View = "login" | "chat";
 
@@ -87,7 +87,9 @@ export default function App() {
 
 function AppContent() {
   const [view, setView] = useState<View>(() =>
-    localStorage.getItem("name") && localStorage.getItem("peer") ? "chat" : "login"
+    localStorage.getItem("name") && localStorage.getItem("peer")
+      ? "chat"
+      : "login",
   );
 
   const handleLogin = (name: string, peer: string) => {
@@ -132,9 +134,68 @@ function AppContent() {
   );
 }
 
-// ─── Login ─────────────────────────────────────────────────────────────────
+// ─── Login ─────────────────────────────────────────────────────────────────────
 
-function LoginView({ onLogin }: { onLogin: (name: string, peer: string) => void }) {
+interface FloatingHintProps {
+  message: string;
+  side: "left" | "right";
+}
+
+function FloatingHint({ message, side }: FloatingHintProps) {
+  // Determine positioning and flip the arrow depending on the side
+  const isLeft = side === "left";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: isLeft ? 20 : -20, scale: 0.95 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: isLeft ? 10 : -10 }}
+      transition={{ type: "spring", stiffness: 300, damping: 25, delay: 0.2 }}
+      className={cn(
+        "absolute hidden lg:flex items-center gap-2 w-72 pointer-events-none z-50 top-1/2 -translate-y-1/2",
+        isLeft
+          ? "right-full mr-6 flex-row-reverse text-right"
+          : "left-full ml-6 flex-row text-left",
+      )}
+    >
+      {/* Pen Arrow with dynamic flip pointing toward the input */}
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        className={cn(
+          "text-amber-500 dark:text-amber-400 shrink-0",
+          isLeft ? "scale-x-[-1] rotate-22" : "-rotate-22",
+        )}
+      >
+        <path
+          d="M 20 20 C 15 15, 10 8, 4 4"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          fill="none"
+        />
+        <path
+          d="M 4 4 L 4 10 M 4 4 L 10 5"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+      </svg>
+
+      <p className="text-md font-medium text-amber-600 dark:text-amber-400 leading-snug italic drop-shadow-sm">
+        {message}
+      </p>
+    </motion.div>
+  );
+}
+
+function LoginView({
+  onLogin,
+}: {
+  onLogin: (name: string, peer: string) => void;
+}) {
   const [name, setName] = useState("");
   const [peer, setPeer] = useState("");
   const [showHIW, setShowHIW] = useState(false);
@@ -146,86 +207,156 @@ function LoginView({ onLogin }: { onLogin: (name: string, peer: string) => void 
 
   return (
     <>
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 gap-4">
-        {/* Language + Theme row */}
-        <div className="flex items-center gap-2">
-          <LanguageSelector />
-          <ModeToggle />
-        </div>
-
-        <Card className="w-full max-w-sm shadow-2xl">
-          <CardHeader className="flex flex-col items-center text-center gap-2 pb-2">
-            {/* Logo */}
+      <div className="min-h-screen flex flex-col bg-background dot-grid">
+        {/* ── Top navbar ── */}
+        <header className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 bg-background/90 backdrop-blur-sm border-b border-border/70">
+          <div className="flex items-center gap-2.5">
             <img
               src="/logo.png"
               alt="Chat Demo"
-              className="h-11 object-contain"
+              className="h-6 object-contain"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
             />
-            <CardTitle className="text-xl">{t.appName}</CardTitle>
-            <CardDescription className="text-xs">{t.appDesc}</CardDescription>
-          </CardHeader>
+            <span className="font-semibold text-sm">Chat Demo</span>
+          </div>
 
-          <CardContent className="space-y-3 pt-2">
-            <Input
-              placeholder={t.yourName}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submit()}
-              autoFocus
-            />
-            <Input
-              placeholder={t.chattingWith}
-              value={peer}
-              onChange={(e) => setPeer(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submit()}
-            />
-            <Button
-              className="w-full"
-              onClick={submit}
-              disabled={!name.trim() || !peer.trim()}
-            >
-              {t.startChatting}
-            </Button>
-
-            {/* How it works + links row */}
-            <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center gap-0.5 sm:gap-1">
+            {/* Links — hidden on mobile, visible on sm+ */}
+            <div className="hidden sm:flex items-center gap-0.5">
               <button
                 onClick={() => setShowHIW(true)}
-                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
               >
-                <Info className="w-3 h-3" />
-                {t.howItWorks}
+                <Info className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{t.howItWorks}</span>
               </button>
-              <div className="flex items-center gap-2.5 text-[11px] text-muted-foreground">
-                <a
-                  href="https://github.com/glasscubeio/chat-demo"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 hover:text-foreground transition-colors"
-                >
-                  <GitBranch className="w-3 h-3" />
-                  {t.viewOnGithub}
-                </a>
-                <span className="opacity-30">·</span>
-                <a
-                  href="https://glasscube.uz"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 hover:text-foreground transition-colors"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  {t.visitSite}
-                </a>
-              </div>
+              <a
+                href="https://github.com/glasscubeio/chat-demo"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
+              >
+                <GitBranch className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">GitHub</span>
+              </a>
+              <a
+                href="https://glasscube.uz"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">glasscube.uz</span>
+              </a>
+              <div className="w-px h-4 bg-border mx-1" />
             </div>
-          </CardContent>
-        </Card>
+            <LanguageSelector />
+            <div className="ml-1">
+              <ModeToggle />
+            </div>
+          </div>
+        </header>
+
+        {/* ── Main content ── */}
+        <div className="flex-1 flex items-center justify-center px-6 py-12 overflow-visible">
+          <div className="w-full max-w-sm relative">
+            <Card className="w-full shadow-2xl border-border/80 bg-card">
+              <CardHeader className="flex flex-col items-center text-center gap-2 pb-2">
+                <img
+                  src="/logo.png"
+                  alt="Chat Demo"
+                  className="h-11 object-contain"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display =
+                      "none";
+                  }}
+                />
+                <CardTitle className="text-xl">{t.appName}</CardTitle>
+                <CardDescription className="text-xs">
+                  {t.appDesc}
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-4 pt-2">
+                <AnimatePresence>
+                  {/* My Name Input Wrapper Container */}
+                  <div className="relative group">
+                    <Input
+                      placeholder={t.yourName}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && submit()}
+                      autoFocus
+                      className="relative z-10"
+                    />
+                    {/* Desktop: floating hint outside the card */}
+                    <FloatingHint message={t.yourNameHint} side="left" />
+                    {/* Mobile: simple inline hint */}
+                    <p className="lg:hidden text-[11px] text-muted-foreground mt-1.5 px-1">
+                      {t.yourNameHint}
+                    </p>
+                  </div>
+
+                  {/* Peer Name Input Wrapper Container */}
+                  <div className="relative group">
+                    <Input
+                      placeholder={t.chattingWith}
+                      value={peer}
+                      onChange={(e) => setPeer(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && submit()}
+                      className="relative z-10"
+                    />
+                    {/* Desktop: floating hint outside the card */}
+                    <FloatingHint message={t.peerNameHint} side="right" />
+                    {/* Mobile: simple inline hint */}
+                    <p className="lg:hidden text-[11px] text-muted-foreground mt-1.5 px-1">
+                      {t.peerNameHint}
+                    </p>
+                  </div>
+                </AnimatePresence>
+
+                <div className="pt-2">
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    onClick={submit}
+                    disabled={!name.trim() || !peer.trim()}
+                  >
+                    {t.startChatting}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* ── Footer ── */}
+        <footer className="flex items-center justify-center gap-3 px-6 py-3.5 border-t border-border/60 text-[11px] text-muted-foreground bg-background/80">
+          <a
+            href="https://github.com/glasscubeio/chat-demo"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 hover:text-foreground transition-colors"
+          >
+            <GitBranch className="w-3 h-3" />
+            Source
+          </a>
+          <span className="opacity-30">·</span>
+          <a
+            href="https://glasscube.uz"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-foreground transition-colors"
+          >
+            glasscube.uz
+          </a>
+          <span className="opacity-30">·</span>
+          <span>Socket.io + Bun</span>
+        </footer>
       </div>
 
-      {/* How it works modal */}
       <AnimatePresence>
         {showHIW && <HowItWorks onClose={() => setShowHIW(false)} />}
       </AnimatePresence>
@@ -233,7 +364,7 @@ function LoginView({ onLogin }: { onLogin: (name: string, peer: string) => void 
   );
 }
 
-// ─── Peer-left modal ──────────────────────────────────────────────────────────
+// ─── Peer-left modal ───────────────────────────────────────────────────────────
 
 function PeerLeftModal({
   onWait,
@@ -252,7 +383,10 @@ function PeerLeftModal({
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
     >
-      <div className="absolute inset-0 bg-black/35 backdrop-blur-[6px]" onClick={onWait} />
+      <div
+        className="absolute inset-0 bg-black/35 backdrop-blur-[6px]"
+        onClick={onWait}
+      />
       <motion.div
         className="relative z-10 w-full max-w-xs overflow-hidden rounded-2xl border border-white/20 bg-white/85 dark:bg-zinc-900/85 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
         initial={{ scale: 0.92, y: 16, opacity: 0 }}
@@ -266,13 +400,23 @@ function PeerLeftModal({
           </div>
           <div>
             <h3 className="font-semibold text-sm">{t.peerLeftTitle}</h3>
-            <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{t.peerLeftDesc}</p>
+            <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+              {t.peerLeftDesc}
+            </p>
           </div>
           <div className="flex gap-2 w-full">
-            <Button variant="outline" className="flex-1 h-8 text-xs" onClick={onWait}>
+            <Button
+              variant="outline"
+              className="flex-1 h-8 text-xs"
+              onClick={onWait}
+            >
               {t.waitForPeer}
             </Button>
-            <Button variant="destructive" className="flex-1 h-8 text-xs" onClick={onLeave}>
+            <Button
+              variant="destructive"
+              className="flex-1 h-8 text-xs"
+              onClick={onLeave}
+            >
               {t.leave}
             </Button>
           </div>
@@ -282,7 +426,7 @@ function PeerLeftModal({
   );
 }
 
-// ─── Chat ──────────────────────────────────────────────────────────────────
+// ─── Chat ──────────────────────────────────────────────────────────────────────
 
 function ChatView({ onLeave }: { onLeave: () => void }) {
   const {
@@ -298,6 +442,7 @@ function ChatView({ onLeave }: { onLeave: () => void }) {
   const { t } = useI18n();
   const [text, setText] = useState("");
   const [showHIW, setShowHIW] = useState(false);
+  const [showMobileInfo, setShowMobileInfo] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const name = localStorage.getItem("name") ?? "";
   const peer = localStorage.getItem("peer") ?? "";
@@ -324,22 +469,28 @@ function ChatView({ onLeave }: { onLeave: () => void }) {
   };
 
   const pingColor =
-    ping === null ? "text-muted-foreground"
-      : ping < 50 ? "text-green-500"
-      : ping < 150 ? "text-yellow-500"
-      : "text-red-500";
+    ping === null
+      ? "text-muted-foreground"
+      : ping < 50
+        ? "text-green-500"
+        : ping < 150
+          ? "text-yellow-500"
+          : "text-red-500";
 
   const renderColor =
-    renderTime === null ? "text-muted-foreground"
-      : renderTime < 16 ? "text-green-500"
-      : renderTime < 50 ? "text-yellow-500"
-      : "text-red-500";
+    renderTime === null
+      ? "text-muted-foreground"
+      : renderTime < 16
+        ? "text-green-500"
+        : renderTime < 50
+          ? "text-yellow-500"
+          : "text-red-500";
 
   return (
     <>
       <div className="flex h-screen">
-        {/* ── Sidebar ── */}
-        <Sidebar>
+        {/* ── Sidebar (desktop only) ── */}
+        <Sidebar className="hidden md:flex">
           <SidebarHeader>
             <div className="flex items-center gap-2">
               <img
@@ -349,16 +500,13 @@ function ChatView({ onLeave }: { onLeave: () => void }) {
                 onError={(e) => {
                   const el = e.currentTarget as HTMLImageElement;
                   el.style.display = "none";
-                  const fallback = document.createElement("div");
-                  fallback.className = "w-5 h-5";
-                  el.parentNode?.insertBefore(fallback, el);
                 }}
               />
               <span className="font-semibold text-sm">Chat Demo</span>
               <div
                 className={cn(
                   "ml-auto w-2 h-2 rounded-full transition-colors",
-                  connected ? "bg-green-500" : "bg-red-500"
+                  connected ? "bg-green-500" : "bg-red-500",
                 )}
               />
             </div>
@@ -386,7 +534,7 @@ function ChatView({ onLeave }: { onLeave: () => void }) {
                 <Circle
                   className={cn(
                     "ml-auto w-2 h-2 shrink-0 fill-current transition-colors",
-                    peerOnline ? "text-green-500" : "text-muted-foreground/40"
+                    peerOnline ? "text-green-500" : "text-muted-foreground/40",
                   )}
                 />
               </div>
@@ -405,7 +553,12 @@ function ChatView({ onLeave }: { onLeave: () => void }) {
                     <Wifi className="w-3.5 h-3.5" />
                     {t.socketPing}
                   </div>
-                  <span className={cn("text-xs font-mono font-semibold tabular-nums", pingColor)}>
+                  <span
+                    className={cn(
+                      "text-xs font-mono font-semibold tabular-nums",
+                      pingColor,
+                    )}
+                  >
                     {ping !== null ? `${ping}ms` : "—"}
                   </span>
                 </div>
@@ -414,7 +567,12 @@ function ChatView({ onLeave }: { onLeave: () => void }) {
                     <Timer className="w-3.5 h-3.5" />
                     {t.renderTime}
                   </div>
-                  <span className={cn("text-xs font-mono font-semibold tabular-nums", renderColor)}>
+                  <span
+                    className={cn(
+                      "text-xs font-mono font-semibold tabular-nums",
+                      renderColor,
+                    )}
+                  >
                     {renderTime !== null ? `${renderTime}ms` : "—"}
                   </span>
                 </div>
@@ -423,7 +581,6 @@ function ChatView({ onLeave }: { onLeave: () => void }) {
 
             <SidebarSeparator />
 
-            {/* How it works button */}
             <SidebarGroup>
               <button
                 onClick={() => setShowHIW(true)}
@@ -475,16 +632,62 @@ function ChatView({ onLeave }: { onLeave: () => void }) {
         </Sidebar>
 
         {/* ── Chat Area ── */}
-        <div className="flex flex-1 flex-col min-h-0">
-          {/* Header */}
-          <div className="flex items-center gap-3 px-6 py-4 border-b bg-background/95 backdrop-blur-sm shrink-0">
+        <div className="flex flex-1 flex-col min-h-0 min-w-0">
+          {/* Mobile header (hidden on desktop) */}
+          <div className="flex md:hidden items-center gap-2 px-4 py-3 border-b bg-background/95 backdrop-blur-sm shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+              onClick={onLeave}
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+
+            <div className="flex-1 min-w-0 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                <User className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-sm leading-none truncate">
+                  {peer}
+                </p>
+                <p
+                  className={cn(
+                    "text-xs mt-0.5 transition-colors",
+                    peerOnline ? "text-green-500" : "text-muted-foreground",
+                  )}
+                >
+                  {peerOnline ? t.online : t.offline}
+                </p>
+              </div>
+            </div>
+
+            {!connected && (
+              <div className="flex items-center gap-1 text-xs text-destructive shrink-0">
+                <WifiOff className="w-4 h-4" />
+              </div>
+            )}
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 text-muted-foreground"
+              onClick={() => setShowMobileInfo(true)}
+            >
+              <Info className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Desktop header (hidden on mobile) */}
+          <div className="hidden md:flex items-center gap-3 px-6 py-4 border-b bg-background/95 backdrop-blur-sm shrink-0">
             <User className="w-5 h-5 text-muted-foreground" />
             <div>
               <p className="font-semibold text-sm leading-none">{peer}</p>
               <p
                 className={cn(
                   "text-xs mt-0.5 transition-colors",
-                  peerOnline ? "text-green-500" : "text-muted-foreground"
+                  peerOnline ? "text-green-500" : "text-muted-foreground",
                 )}
               >
                 {peerOnline ? t.online : t.offline}
@@ -499,7 +702,7 @@ function ChatView({ onLeave }: { onLeave: () => void }) {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-3">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground select-none">
                 <MessageCircleMore className="w-10 h-10 opacity-20" />
@@ -512,16 +715,16 @@ function ChatView({ onLeave }: { onLeave: () => void }) {
                 <div
                   key={msg.id}
                   className={cn(
-                    "flex flex-col gap-0.5 max-w-[70%]",
-                    isMe ? "ml-auto items-end" : "items-start"
+                    "flex flex-col gap-0.5 max-w-[82%] sm:max-w-[70%]",
+                    isMe ? "ml-auto items-end" : "items-start",
                   )}
                 >
                   <div
                     className={cn(
-                      "px-3 py-2 rounded-2xl text-sm leading-relaxed break-words",
+                      "px-3 py-2.5 rounded-2xl text-sm leading-relaxed wrap-break-word",
                       isMe
                         ? "bg-primary text-primary-foreground rounded-tr-sm"
-                        : "bg-muted rounded-tl-sm"
+                        : "bg-muted rounded-tl-sm",
                     )}
                   >
                     {msg.text}
@@ -535,26 +738,195 @@ function ChatView({ onLeave }: { onLeave: () => void }) {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
-          <div className="flex gap-2 px-6 py-4 border-t bg-background shrink-0">
+          {/* Input bar */}
+          <div className="flex gap-2 px-3 sm:px-6 py-3 sm:py-4 border-t bg-background shrink-0">
             <Input
               placeholder={t.messagePH.replace("{peer}", peer)}
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               disabled={!connected}
-              className="flex-1"
+              className="flex-1 h-10 sm:h-9 text-base sm:text-sm"
             />
             <Button
               onClick={handleSend}
               disabled={!connected || !text.trim()}
               size="icon"
+              className="h-10 w-10 sm:h-9 sm:w-9 shrink-0"
             >
               <Send className="w-4 h-4" />
             </Button>
           </div>
         </div>
       </div>
+
+      {/* ── Mobile info bottom sheet ── */}
+      <AnimatePresence>
+        {showMobileInfo && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-end md:hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-[3px]"
+              onClick={() => setShowMobileInfo(false)}
+            />
+            <motion.div
+              className="relative z-10 w-full bg-background rounded-t-2xl border-t border-border shadow-2xl max-h-[85vh] overflow-y-auto"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 32, stiffness: 320 }}
+            >
+              {/* Pull handle */}
+              <div className="flex justify-center pt-3 pb-2">
+                <div className="w-10 h-1 rounded-full bg-muted-foreground/25" />
+              </div>
+
+              <div className="px-5 pb-8 space-y-5">
+                {/* Connection status */}
+                <div className="flex items-center gap-2">
+                  <div
+                    className={cn(
+                      "w-2 h-2 rounded-full",
+                      connected ? "bg-green-500" : "bg-red-500",
+                    )}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {connected ? t.connected : t.reconnecting}
+                  </span>
+                </div>
+
+                <div className="h-px bg-border" />
+
+                {/* You */}
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+                    {t.youLabel}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                      <User className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                    <span className="font-semibold text-sm">{name}</span>
+                  </div>
+                </div>
+
+                <div className="h-px bg-border" />
+
+                {/* Peer */}
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+                    {t.peerLabel}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                      <User className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm">{peer}</p>
+                      <p
+                        className={cn(
+                          "text-xs",
+                          peerOnline
+                            ? "text-green-500"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {peerOnline ? t.online : t.offline}
+                      </p>
+                    </div>
+                    <Circle
+                      className={cn(
+                        "w-2.5 h-2.5 fill-current shrink-0",
+                        peerOnline
+                          ? "text-green-500"
+                          : "text-muted-foreground/30",
+                      )}
+                    />
+                  </div>
+                </div>
+
+                <div className="h-px bg-border" />
+
+                {/* Speed */}
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+                    {t.speedLabel}
+                  </p>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Wifi className="w-4 h-4" />
+                        {t.socketPing}
+                      </div>
+                      <span
+                        className={cn(
+                          "text-sm font-mono font-semibold tabular-nums",
+                          pingColor,
+                        )}
+                      >
+                        {ping !== null ? `${ping}ms` : "—"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Timer className="w-4 h-4" />
+                        {t.renderTime}
+                      </div>
+                      <span
+                        className={cn(
+                          "text-sm font-mono font-semibold tabular-nums",
+                          renderColor,
+                        )}
+                      >
+                        {renderTime !== null ? `${renderTime}ms` : "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="h-px bg-border" />
+
+                {/* How it works */}
+                <button
+                  onClick={() => {
+                    setShowMobileInfo(false);
+                    setShowHIW(true);
+                  }}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Info className="w-4 h-4" />
+                  {t.howItWorks}
+                </button>
+
+                <div className="h-px bg-border" />
+
+                {/* Language + Theme */}
+                <div className="flex items-center justify-between">
+                  <LanguageSelector />
+                  <ModeToggle />
+                </div>
+
+                <div className="h-px bg-border" />
+
+                {/* Leave */}
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  onClick={onLeave}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  {t.leave}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Peer-left modal */}
       <AnimatePresence>
